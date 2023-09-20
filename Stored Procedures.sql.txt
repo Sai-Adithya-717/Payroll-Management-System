@@ -1,0 +1,109 @@
+-- Updating Employee
+CREATE PROCEDURE updating_employee_dept
+@emp_id INT, @dept_id INT
+AS  
+BEGIN
+  update Employee
+  set Employee.Department_Id = @dept_id
+  where Employee_Id = @emp_id;
+END
+
+Exec updating_employee_dept 110,1
+
+-- Checking Employee
+create procedure emp_lookup
+	@p_empno int,
+	@o_ename varchar(50) output,
+	@o_sal	int output as
+begin
+	select @o_ename = e.First_Name, @o_sal = s.Hourly_Pay
+		from Employee e
+		inner join AccountDetails a
+		on e.Employee_Id = a.Employee_Id
+		inner join Salary s
+		on a.Account_Id = s.Account_Id
+		where e.Employee_Id = @p_empno
+		order by s.Hourly_Pay DESC;
+
+		set @o_sal = @o_sal * 3000
+
+		INSERT INTO Employee_lookup (EmpNum,EmpName, Salary)
+    VALUES (@p_empno,@o_ename, @o_sal);
+end
+
+Declare @o_ename varchar;
+Declare @o_sal int;
+EXEC emp_lookup 104,@o_ename output,@o_sal output;
+select * from AccountDetails
+select * from Employee
+select * from Employee_lookup
+
+create table Employee_lookup(EmpNum int,EmpName Varchar(50), Salary int)
+
+select * from Salary
+
+-- Salary Range View
+create view salary_range_calculator
+as
+select e.First_Name, s.Hourly_Pay
+	from Employee e
+	inner join AccountDetails a
+	on e.Employee_Id = a.Employee_Id	
+	inner join Salary s
+	on a.Account_Id = s.Account_Id
+	where s.Hourly_Pay = 30;
+
+-- Education View
+create view Education_View
+	 as 
+	 select Degree, count(Degree)as Number 
+	 from Education 
+	 group by Degree;
+
+select * from Education_View
+
+-- Removal of Unimportant Locations
+CREATE PROCEDURE Unimportant_Locations
+@l_no_Employees INT,
+  @l_wl INT output,
+  @l_emp INT output
+AS
+BEGIN
+  select @l_wl = Count(*)
+  FROM Work_Location
+  WHERE Number_Of_Employees LIKE @l_no_Employees;
+  select @l_emp = Count(*)
+  from Employee e
+  inner join Work_Location w
+  on e.City = w.City
+  where w.Number_Of_Employees LIKE @l_no_Employees;
+  IF @l_wl < 5
+  Begin
+    DELETE FROM Work_Location
+    WHERE Number_Of_Employees = @l_no_Employees;
+  END
+END
+DECLARE  @l_emp int;
+EXEC Unimportant_Locations 2,2,@l_emp output
+
+select * from Work_Location
+
+INSERT INTO Work_Location VALUES (78,'South',2,'Seattle','Washington');
+
+
+create table Work_Location_History(Location_Id int,Location varchar(25) ,Number_Of_Employees int,City varchar(25),State Varchar(25),UPDATED_AT DateTime,Operation char(3),CHECK(OPERATION = 'INS' OR OPERATION = 'DEL'))
+
+-- Trigger On Insertion and Deletion of Data in Work Location
+CREATE TRIGGER On_change
+ON Work_Location
+AFTER INSERT,DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO Work_Location_History(Location_Id,Location,Number_Of_Employees,City,State,UPDATED_AT,Operation)
+    SELECT  i.Location_Id,Location,Number_Of_Employees, City,State,GETDATE(), 'INS' FROM inserted i
+    UNION
+    SELECT  d.Location_Id,Location,Number_Of_Employees, City,State,GETDATE(), 'DEL' FROM deleted d;
+END
+
+Select * from Work_Location_History
